@@ -1,6 +1,7 @@
 package com.chestor.service.impl;
 
 import com.chestor.service.ConsumerService;
+import com.chestor.service.MainService;
 import com.chestor.service.ProducerService;
 import lombok.extern.log4j.Log4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -13,35 +14,30 @@ import static com.chestor.model.RabbitQueue.*;
 @Service
 @Log4j
 public class ConsumerServiceImpl implements ConsumerService {
-    private final ProducerService producerService;
+    private final MainService mainService;
 
-    public ConsumerServiceImpl(ProducerService producerService) {
-        this.producerService = producerService;
+    public ConsumerServiceImpl(MainService mainService) {
+        this.mainService = mainService;
     }
 
     @Override
     @RabbitListener(queues = TEXT_MESSAGE_UPDATE)
     public void consumeTextMessage(Update update) {
         log.debug("NODE: Text message is received");
-
-        var message = update.getMessage();
-        var sendMessage = SendMessage.builder()
-                .chatId(message.getChatId())
-                .text("Hello from NODE")
-                .build();
-
-        producerService.produceAnswer(sendMessage);
+        mainService.processTextMessage(update);
     }
 
     @Override
     @RabbitListener(queues = DOC_MESSAGE_UPDATE)
     public void consumeDocMessage(Update update) {
         log.debug("NODE: Doc message is received");
+        mainService.processDocMessage(update);
     }
 
     @Override
     @RabbitListener(queues = PHOTO_MESSAGE_UPDATE)
     public void consumePhotoMessage(Update update) {
         log.debug("NODE: Photo message is received");
+        mainService.processPhotoMessage(update);
     }
 }
