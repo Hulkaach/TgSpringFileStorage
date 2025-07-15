@@ -11,6 +11,7 @@ import com.chestor.exceptions.UploadFileException;
 import com.chestor.service.FileService;
 import com.chestor.service.MainService;
 import com.chestor.service.ProducerService;
+import com.chestor.service.enums.LinkType;
 import com.chestor.service.enums.ServiceCommands;
 import lombok.extern.log4j.Log4j;
 import org.springframework.stereotype.Service;
@@ -76,8 +77,8 @@ public class MainServiceImpl implements MainService {
 
         try {
             AppDocument doc = fileService.processDoc(update.getMessage());
-            //todo добавить генеарцию ссылки для скачивания документа
-            var answer = "Документ успешно загружен! Ссылка для скачивания: http//test.ru/DOC";
+            String link = fileService.generateLink(doc.getId(), LinkType.GET_DOC);
+            var answer = "Документ успешно загружен! Ссылка для скачивания: " + link;
             sendAnswer(chatId, answer);
         } catch (UploadFileException e) {
             log.error(e);
@@ -97,8 +98,8 @@ public class MainServiceImpl implements MainService {
 
         try {
             AppPhoto photo = fileService.processPhoto(update.getMessage());
-            //todo добавить сохранение фото
-            var answer = "Фото успешно загружено! Ссылка для скачивания: http//test.ru/PHOTO";
+            String link = fileService.generateLink(photo.getId(), LinkType.GET_PHOTO);
+            var answer = "Фото успешно загружено! Ссылка для скачивания: " + link;
             sendAnswer(chatId, answer);
         } catch (UploadFileException e) {
             log.error(e);
