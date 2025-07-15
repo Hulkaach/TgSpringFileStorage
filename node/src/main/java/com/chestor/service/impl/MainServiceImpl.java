@@ -2,11 +2,16 @@ package com.chestor.service.impl;
 
 import com.chestor.dao.AppUserDAO;
 import com.chestor.dao.RawDataDAO;
+import com.chestor.entity.AppDocument;
+import com.chestor.entity.AppPhoto;
 import com.chestor.entity.AppUser;
 import com.chestor.entity.RawData;
 import com.chestor.entity.enums.UserState;
+import com.chestor.exceptions.UploadFileException;
+import com.chestor.service.FileService;
 import com.chestor.service.MainService;
 import com.chestor.service.ProducerService;
+import com.chestor.service.enums.ServiceCommands;
 import lombok.extern.log4j.Log4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -23,11 +28,13 @@ public class MainServiceImpl implements MainService {
     private final RawDataDAO rawDataDAO;
     private final ProducerService producerService;
     private final AppUserDAO appUserDAO;
+    private final FileService fileService;
 
-    public MainServiceImpl(RawDataDAO rawDataDAO, ProducerService producerService, AppUserDAO appUserDAO) {
+    public MainServiceImpl(RawDataDAO rawDataDAO, ProducerService producerService, AppUserDAO appUserDAO, FileService fileService) {
         this.rawDataDAO = rawDataDAO;
         this.producerService = producerService;
         this.appUserDAO = appUserDAO;
+        this.fileService = fileService;
     }
 
     @Override
@@ -38,7 +45,9 @@ public class MainServiceImpl implements MainService {
         var text = update.getMessage().getText();
         var output = "";
 
-        if (CANCEL.equals(text)) {
+        var serviceCommand = ServiceCommands.fromValue(text);
+
+        if (CANCEL.equals(serviceCommand)) {
             output = cancelProcess(appUser);
         } else if (BASIC_STATE.equals(userState)) {
             output = processServiceCommand(appUser, text);
@@ -64,10 +73,17 @@ public class MainServiceImpl implements MainService {
         if (isNotAllowToSendContent(chatId, appUser)) {
             return;
         }
-        //todo добавить сохранение документа
-        var answer = "Документ успешно загружен! Ссылка для скачивания: http//test.ru/DOC";
-        sendAnswer(chatId, answer);
 
+        try {
+            AppDocument doc = fileService.processDoc(update.getMessage());
+            //todo добавить генеарцию ссылки для скачивания документа
+            var answer = "Документ успешно загружен! Ссылка для скачивания: http//test.ru/DOC";
+            sendAnswer(chatId, answer);
+        } catch (UploadFileException e) {
+            log.error(e);
+            String error = "К сожалению загрузка файла не удалась. Повторите попытку позже";
+            sendAnswer(chatId, error);
+        }
     }
 
     @Override
@@ -78,21 +94,28 @@ public class MainServiceImpl implements MainService {
         if (isNotAllowToSendContent(chatId, appUser)) {
             return;
         }
-        //todo добавить сохранение фото
-        var answer = "Фото успешно загружено! Ссылка для скачивания: http//test.ru/PHOTO";
-        sendAnswer(chatId, answer);
 
+        try {
+            AppPhoto photo = fileService.processPhoto(update.getMessage());
+            //todo добавить сохранение фото
+            var answer = "Фото успешно загружено! Ссылка для скачивания: http//test.ru/PHOTO";
+            sendAnswer(chatId, answer);
+        } catch (UploadFileException e) {
+            log.error(e);
+            String error = "К сожалению загрузка фото не удалась. Повторите попытку позже";
+            sendAnswer(chatId, error);
+        }
     }
 
     private boolean isNotAllowToSendContent(Long chatId, AppUser appUser) {
         var userState = appUser.getUserState();
         if (!appUser.getIsActive()) {
             var error = "Зарегистрируйтесь или активируйте свою учетную запись для загрузкт контента";
-            sendAnswer(chatId,error);
+            sendAnswer(chatId, error);
             return true;
         } else if (!BASIC_STATE.equals(userState)) {
             var error = "Отмените текущую команду с помощью /cancel для отправки файлов";
-            sendAnswer(chatId,error);
+            sendAnswer(chatId, error);
             return true;
         }
         return false;
